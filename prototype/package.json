@@ -1,0 +1,26 @@
+{
+  "name": "prototype",
+  "version": "0.0.0",
+  "description": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@faker-js/faker": "^8.0.1",
+    "@msgpack/msgpack": "^3.0.0-beta2",
+    "@spartan-hc/holo-hash": "^0.5.4",
+    "@whi/holochain-prototyping": "file:../../node-holochain-prototyping",
+    "@whi/json": "^0.1.7",
+    "@whi/object-walk": "^0.3.0",
+    "chai": "^4.3.7",
+    "hmac-drbg": "^1.0.1",
+    "merkle-json": "^2.6.0",
+    "merkle-tools": "^1.4.1",
+    "merkletreejs": "^0.3.10",
+    "treeify": "^1.1.0"
+  }
+}
