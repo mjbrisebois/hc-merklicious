@@ -1,0 +1,13 @@
+[package]
+name = "merklicious"
+version = "0.0.0"
+authors = ["Matthew Brisebois <matthew.brisebois@holo.host>"]
+edition = "2018"
+
+[lib]
+name = "merklicious"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hc_merklicious_sdk = {path = "../../merklicious_sdk"}
+serde = "1"

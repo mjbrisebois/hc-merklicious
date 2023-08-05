@@ -1,0 +1,20 @@
+[package]
+name = "hc_merklicious_sdk"
+version = "0.1.0"
+authors = ["Matthew Brisebois <matthew.brisebois@holo.host>"]
+edition = "2018"
+
+[lib]
+name = "merklicious_sdk"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hex = "0.4.3"
+hmac = "0.12.1"
+rmp-serde = { version = "1.1.2" }
+rmpv = { version = "=1.0.0", features = ["with-serde"] }
+rs_merkle = "1.4.1"
+serde = "1"
+sha2 = "0.10.7"
+thiserror = "1"
+whi_hdk_extensions = "=0.1.2"

@@ -1,0 +1,17 @@
+[package]
+name = "merklicious_csr"
+version = "0.0.0"
+authors = ["Matthew Brisebois <matthew.brisebois@holo.host>"]
+edition = "2018"
+
+[lib]
+name = "merklicious_csr"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+lazy_static = "1.4"
+merklicious = { path = "../merklicious" }
+rand = "0.8.5"
+rmp-serde = { version = "1.1.2" }
+rs_merkle = "1.4.1"
+serde = "1"
