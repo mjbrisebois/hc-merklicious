@@ -14,7 +14,7 @@ use crate::{
 
 pub fn validation(
     app_entry: EntryTypes,
-    _update: Update,
+    update: Update,
     _original_action_hash: ActionHash,
     _original_entry_hash: EntryHash
 ) -> ExternResult<ValidateCallbackResult> {
@@ -23,6 +23,6 @@ pub fn validation(
             debug!("Checking update EntryTypes::Tree({:#?})", tree );
             invalid!(format!("Merkle Trees cannot be updated; use Create instead"))
         },
-        // _ => invalid!(format!("Update validation not implemented for entry type: {:#?}", update.entry_type )),
+        _ => invalid!(format!("Update validation not implemented for entry type: {:#?}", update.entry_type )),
     }
 }

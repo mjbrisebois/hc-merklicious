@@ -21,10 +21,10 @@ use merklicious::{
     // EntryTypesUnit,
     // LinkTypes,
     merklicious_sdk::{
-        now,
         // Entry Structs
         LeafDataBlock,
         LeafProofPayload,
+        DataBlocksEntry,
         TreeEntry,
         // Input Structs
         CreateTreeInput,
@@ -71,7 +71,6 @@ fn create_merkle_tree(data_blocks: &Vec<LeafDataBlock>) -> ExternResult<(MerkleT
 #[hdk_extern]
 pub fn create_tree(input: CreateTreeInput) -> ExternResult<ActionHash> {
     debug!("Creating new tree entry: {:#?}", input );
-    let timestamp = now()?;
     let entropy = match input.entropy {
         Some(bytes) => bytes.to_vec(),
         None => {
@@ -79,25 +78,30 @@ pub fn create_tree(input: CreateTreeInput) -> ExternResult<ActionHash> {
             (0..32).map(|_| rng.gen()).collect()
         },
     };
-    let data_blocks : Vec<LeafDataBlock> = input.leaves.into_iter()
+    let data_blocks = input.leaves.into_iter()
         .enumerate()
         .map(|(index, leaf_input)| {
             leaf_input.into_data_block( &entropy, index )
         })
         .collect::<ExternResult<Vec<LeafDataBlock>>>()?;
+    let (merkle_tree, leaves) = create_merkle_tree( &data_blocks )?;
 
-    let (tree, leaves) = create_merkle_tree( &data_blocks )?;
+    let blocks_entry = DataBlocksEntry {
+        blocks: data_blocks,
+
+        // common fields
+        metadata: BTreeMap::new(),
+    };
+    let blocks_action_hash = create_entry( blocks_entry.to_input() )?;
 
     let entry = TreeEntry {
-        data_blocks: data_blocks,
+        data_blocks: blocks_action_hash,
         leaves,
         entropy: entropy.to_vec(),
-        root: tree.root()
+        root: merkle_tree.root()
             .ok_or(guest_error!(format!("Couldn't get the Merkle root")))?,
 
         // common fields
-        published_at: timestamp,
-        last_updated: timestamp,
         metadata: BTreeMap::new(),
     };
     let action_hash = create_entry( entry.to_input() )?;
@@ -116,6 +120,15 @@ pub fn get_tree(tree_id: ActionHash) -> ExternResult<TreeEntry> {
 
 
 #[hdk_extern]
+pub fn get_data_blocks(data_blocks_id: ActionHash) -> ExternResult<DataBlocksEntry> {
+    debug!("Get latest tree entry: {}", data_blocks_id );
+    let record = must_get( &data_blocks_id )?;
+
+    Ok( DataBlocksEntry::try_from_record( &record )? )
+}
+
+
+#[hdk_extern]
 pub fn hash_data_block(input: LeafDataBlock) -> ExternResult<[u8; 32]> {
     input.hash()
 }
@@ -125,11 +138,12 @@ pub fn hash_data_block(input: LeafDataBlock) -> ExternResult<[u8; 32]> {
 pub fn get_leaf_proof(input: GetLeafProofInput) -> ExternResult<LeafProofPayload> {
     debug!("Get proof for '{}' in tree: {}", input.label, input.tree_id );
     let tree_entry = get_tree( input.tree_id.clone() )?;
-    let (tree, _) = create_merkle_tree( &tree_entry.data_blocks )?;
-    let target_index = tree_entry.data_blocks.iter()
+    let data_blocks = get_data_blocks( tree_entry.data_blocks.clone() )?.blocks;
+    let (tree, _) = create_merkle_tree( &data_blocks )?;
+    let target_index = data_blocks.iter()
         .position(|block| block.label == input.label )
         .ok_or(guest_error!(format!("Tree has no data block with the label '{}'", input.label )))?;
-    let target = tree_entry.data_blocks[ target_index ].clone();
+    let target = data_blocks[ target_index ].clone();
     let leaf = target.hash()?;
     let merkle_proof = tree.proof( &[target_index] );
 
@@ -141,7 +155,7 @@ pub fn get_leaf_proof(input: GetLeafProofInput) -> ExternResult<LeafProofPayload
             target,
             leaf,
             root: tree_entry.root,
-            total_leaves: tree_entry.data_blocks.len() as u64,
+            total_leaves: data_blocks.len() as u64,
         }
     )
 }

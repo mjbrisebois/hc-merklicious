@@ -25,12 +25,24 @@ use hdi_extensions::{
 #[unit_enum(EntryTypesUnit)]
 pub enum EntryTypes {
     #[entry_def(visibility = "private")]
+    DataBlocks(DataBlocksEntry),
+    #[entry_def(visibility = "private")]
     Tree(TreeEntry),
+    #[entry_def]
+    Claim(ClaimEntry),
 }
 
 scoped_type_connector!(
+    EntryTypesUnit::DataBlocks,
+    EntryTypes::DataBlocks( DataBlocksEntry )
+);
+scoped_type_connector!(
     EntryTypesUnit::Tree,
     EntryTypes::Tree( TreeEntry )
+);
+scoped_type_connector!(
+    EntryTypesUnit::Claim,
+    EntryTypes::Claim( ClaimEntry )
 );
 
 

@@ -27,6 +27,7 @@ import {
 import {
     EntryCreationActionStruct,
     TreeStruct,
+    ProofDetails,
 }					from './types.js';
 
 const delay				= (n) => new Promise(f => setTimeout(f, n));
@@ -106,11 +107,15 @@ function basic_tests () {
 	    "label": "date_of_birth",
 	});
 	log.debug("Merkle proof payload:", result );
+	const details			= intoStruct( result, ProofDetails );
+	log.debug("Proof details: %s", json.debug(details) );
+
+	// Verify that the hash of 'target' is in fact the leaf returned in proof
 	const block_hash		= await clients.alice.call( DNA_NAME, MAIN_ZOME, "hash_data_block", result.target );
 
 	expect( block_hash		).to.deep.equal( result.leaf );
 
-	const verify			= await clients.alice.call( DNA_NAME, MAIN_ZOME, "verify_leaf_proof", {
+	const verify			= await clients.bobby.call( DNA_NAME, MAIN_ZOME, "verify_leaf_proof", {
 	    "proof": result.proof,
 	    "index": result.index,
 	    "leaf": result.leaf,
@@ -120,6 +125,73 @@ function basic_tests () {
 	log.debug("Merkle proof verified:", verify );
 
 	expect( verify			).to.be.true;
+    });
+
+    it("should generating output for docs", async function () {
+	const client			= {
+	    call ( ...args ) {
+		return clients.alice.call( DNA_NAME, MAIN_ZOME, ...args );
+	    }
+	}
+
+	const data_blocks = [{
+	    "label": "name.first",
+	    "value": "Count",
+	},{
+	    "label": "name.last",
+	    "value": "Dracula",
+	},{
+	    "label": "address.street",
+	    "value": "Str. G-ral Traian Mosoiu, nr.24, Bran",
+	},{
+	    "label": "address.city",
+	    "value": null,
+	},{
+	    "label": "address.region",
+	    "value": "Transylvania",
+	},{
+	    "label": "address.country",
+	    "value": "Romania",
+	},{
+	    "label": "date_of_birth",
+	    "value": "1476-12-14",
+	},{
+	    "label": "appearance.height",
+	    "value": "{\"value\"193,\"unit\":\"cm\"}",
+	},{
+	    "label": "appearance.weight",
+	    "value": "{\"value\":102,\"unit\":\"kg\"}",
+	},{
+	    "label": "organ_donor",
+	    "value": false,
+	}];
+
+	const tree_addr = await client.call( "create_tree", {
+	    "leaves": data_blocks,
+	});
+	log.trace("%s", json.debug(tree_addr) );
+
+	const tree = await client.call( "get_tree", tree_addr );
+	log.trace("%s", json.debug(tree) );
+
+	const details = await client.call( "get_leaf_proof", {
+	    "tree_id": tree_addr,
+	    "label": "date_of_birth",
+	});
+	log.trace("%s", json.debug(details) );
+
+	const target_hash = await client.call( "hash_data_block", details.target );
+	log.trace("%s", json.debug(target_hash) );
+
+	const verify = await client.call( "verify_leaf_proof", {
+	    "tree_id": tree_addr,
+	    "proof": details.proof,
+	    "index": details.index,
+	    "leaf": details.leaf,
+	    "root": details.root,
+	    "total_leaves": details.total_leaves,
+	});
+	log.trace("%s", json.debug(verify) );
     });
 
 }

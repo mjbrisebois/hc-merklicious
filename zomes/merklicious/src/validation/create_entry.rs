@@ -5,7 +5,7 @@ use crate::hdk::prelude::{
 use crate::hdi::prelude::*;
 use crate::hdi_extensions::{
     // Macros
-    valid, // invalid,
+    valid, invalid,
 };
 use crate::{
     EntryTypes,
@@ -13,13 +13,13 @@ use crate::{
 
 pub fn validation(
     app_entry: EntryTypes,
-    _create: Create
+    create: Create
 ) -> ExternResult<ValidateCallbackResult> {
     match app_entry {
         EntryTypes::Tree(_tree) => {
             debug!("Checking EntryTypes::Tree");
             valid!()
         },
-        // _ => invalid!(format!("Create validation not implemented for entry type: {:#?}", create.entry_type )),
+        _ => invalid!(format!("Create validation not implemented for entry type: {:#?}", create.entry_type )),
     }
 }

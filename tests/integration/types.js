@@ -31,18 +31,24 @@ export const EntryCreationActionStruct = {
 };
 
 export const TreeStruct = {
-    "data_blocks":		VecType( Object ),
+    "data_blocks":		ActionHash,
     "leaves":			VecType( Uint8Array ),
     "entropy":			Uint8Array,
     "root":			Uint8Array,
 
-    "published_at":		Number,
-    "last_updated":		Number,
-
     "metadata":			Object,
+};
+
+export const ProofDetails = {
+    "proof":			VecType( Uint8Array ),
+    "index":			Number,
+    "target":			Object,
+    "leaf":			Uint8Array,
+    "root":			Uint8Array,
 };
 
 export default {
     EntryCreationActionStruct,
     TreeStruct,
+    ProofDetails,
 };

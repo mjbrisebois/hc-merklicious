@@ -12,7 +12,6 @@ use hdk::prelude::sys_time;
 use hmac::{ Hmac, Mac };
 use sha2::{ Sha256, Digest };
 use rmp_serde;
-// use rs_merkle::{ MerkleProof, algorithms };
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -21,11 +20,13 @@ type HmacSha256 = Hmac<Sha256>;
 //
 // General Functions
 //
+/// Get a current timestamp according to the HDK's [`sys_time`]
 pub fn now() -> ExternResult<u64> {
     sys_time()
 	.map( |t| (t.as_micros() / 1000) as u64 )
 }
 
+/// Serialize the given data using [`rmp_serde`] and return the SHA-256 hash
 pub fn sha256<T>(data: &T) -> ExternResult<[u8; 32]>
 where
     T: Serialize + std::fmt::Debug,
@@ -39,32 +40,11 @@ where
     )
 }
 
-#[cfg(test)]
-mod tests {
-    use super::{ sha256, Serialize };
-
-    #[test]
-    fn test_sha256() {
-        #[derive(Debug, Serialize)]
-        pub struct Data( Option<u8> );
-
-        assert_eq!( sha256( &Data(None) ).unwrap(), [
-            228, 255, 94, 125, 122, 127, 8, 233,
-            128, 10, 62, 37, 203, 119, 69, 51,
-            203, 32, 4, 13, 243, 11, 107, 161,
-            15, 149, 111, 154, 205, 14, 179, 247
-        ] );
-    }
-}
 
 
 // Trait for common fields
 /// Common fields that are expected on some entry structs
 pub trait CommonFields<'a> {
-    /// A timestamp that indicates when the original create entry was made
-    fn published_at(&'a self) -> &'a u64;
-    /// A timestamp that indicates when this entry was created
-    fn last_updated(&'a self) -> &'a u64;
     /// A spot for holding data that is not relevant to integrity validation
     fn metadata(&'a self) -> &'a BTreeMap<String, rmpv::Value>;
 }
@@ -79,8 +59,6 @@ pub trait CommonFields<'a> {
 ///     pub message: String,
 ///
 ///     // Common fields
-///     pub published_at: u64,
-///     pub last_updated: u64,
 ///     pub metadata: BTreeMap<String, rmpv::Value>,
 /// }
 /// common_fields!( PostEntry );
@@ -89,12 +67,6 @@ pub trait CommonFields<'a> {
 macro_rules! common_fields {
     ( $name:ident ) => {
         impl<'a> CommonFields<'a> for $name {
-            fn published_at(&'a self) -> &'a u64 {
-                &self.published_at
-            }
-            fn last_updated(&'a self) -> &'a u64 {
-                &self.last_updated
-            }
             fn metadata(&'a self) -> &'a BTreeMap<String, rmpv::Value> {
                 &self.metadata
             }
@@ -121,19 +93,26 @@ pub struct LeafDataBlock {
 }
 
 impl LeafDataBlock {
+    /// Get a sha256 hash of this struct
     pub fn hash(&self) -> ExternResult<[u8; 32]> {
         sha256( &self )
     }
 }
 
-/// 
+/// All the information required to verify a leaf
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LeafProofPayload {
+    /// The Merkle proof hash list
     pub proof: Vec<[u8; 32]>,
+    /// The leaf's index in the Merkle tree
     pub index: u64,
+    /// The revealed leaf data
     pub target: LeafDataBlock,
+    /// The sha256 hash of the target leaf
     pub leaf: [u8; 32],
+    /// The Merkle tree's root hash
     pub root: [u8; 32],
+    /// The total number of leaves in the Merkle tree
     pub total_leaves: u64,
 }
 
@@ -142,27 +121,39 @@ pub struct LeafProofPayload {
 //
 // Tree Entry
 //
-/// An entry struct for defining a group and its members
+/// An entry struct for storing the leaf data blocks that were used to create a tree
+#[hdk_entry_helper]
+#[derive(Clone)]
+pub struct DataBlocksEntry {
+    /// A list of leaf data blocks
+    pub blocks: Vec<LeafDataBlock>,
+
+    // common fields
+    pub metadata: BTreeMap<String, rmpv::Value>,
+}
+common_fields!( DataBlocksEntry );
+
+
+/// An entry struct that represents a Merkle tree
 #[hdk_entry_helper]
 #[derive(Clone)]
 pub struct TreeEntry {
-    /// The list of label/value pairs derived from the input
-    pub data_blocks: Vec<LeafDataBlock>,
+    /// The leaf data blocks used to create this tree
+    pub data_blocks: ActionHash,
+    /// The leaf hashes of this Merkle tree
     pub leaves: Vec<[u8; 32]>,
     /// A secret entropy used for creating deterministic salts
     pub entropy: Vec<u8>,
-    /// The root hash of this Merkle Tree
+    /// The root hash of this Merkle tree
     pub root: [u8; 32],
 
     // common fields
-    pub published_at: u64,
-    pub last_updated: u64,
     pub metadata: BTreeMap<String, rmpv::Value>,
 }
 common_fields!( TreeEntry );
 
 impl TreeEntry {
-    /// Get the Merkle Tree root as a hex string
+    /// Get the Merkle tree root as a hex string
     pub fn root_as_hex(&self) -> String {
         hex::encode( self.root.to_owned() )
     }
@@ -171,9 +162,30 @@ impl TreeEntry {
 
 
 //
+// Claim Entry
+//
+/// An entry struct for making a claim about a Merkle tree
+#[hdk_entry_helper]
+#[derive(Clone)]
+pub struct ClaimEntry {
+    /// The name of this claim
+    pub name: String,
+    /// The author making the claim
+    pub author: AgentPubKey,
+    /// A reference to the Merkle tree
+    pub root: [u8; 32],
+
+    // common fields
+    pub metadata: BTreeMap<String, rmpv::Value>,
+}
+common_fields!( ClaimEntry );
+
+
+
+//
 // CSR Input Structs
 //
-/// Input required for registering new content to a group
+/// Input required for a leaf data block
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LeafInput {
     /// The field descriptor
@@ -183,6 +195,9 @@ pub struct LeafInput {
 }
 
 impl LeafInput {
+    /// Create a [`LeafDataBlock`] from this leaf input
+    ///
+    /// This method generates a deterministic salt using the entropy and index provided
     pub fn into_data_block(self, entropy: &Vec<u8>, index: usize) -> ExternResult<LeafDataBlock> {
         let mut hmac = HmacSha256::new_from_slice( entropy.as_slice() )
             .or(Err(guest_error!(format!("Failed to create hmac with entropy: {:#?}", entropy ))))?;
@@ -202,90 +217,55 @@ impl LeafInput {
 
 type OptionalBytes = Option<serde_bytes::ByteBuf>;
 
+/// Input required for creating a tree entry
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CreateTreeInput {
+    /// A list of data blocks used as the Merkle tree leaves
     pub leaves: Vec<LeafInput>,
+    /// Entropy used for creating deterministic salts for each leaf
     pub entropy: OptionalBytes,
 }
 
-/// 
+/// Input required for getting a leaf proof
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GetLeafProofInput {
+    /// The create action for the target tree entry
     pub tree_id: ActionHash,
+    /// The label of the target leaf
     pub label: String,
 }
 
+/// Input required for verifying a single leaf proof
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct VerifyLeafProofInput {
+    /// The Merkle proof hash list
     pub proof: Vec<[u8; 32]>,
+    /// The leaf's index in the Merkle tree
     pub index: u64,
+    /// The sha256 hash of the target leaf
     pub leaf: [u8; 32],
+    /// The Merkle tree's root hash
     pub root: [u8; 32],
+    /// The total number of leaves in the Merkle tree
     pub total_leaves: u64,
 }
 
 
 
-//
-// Validation helpers
-//
-/// Checks that an entry's group reference and author are valid
-pub fn validate_group_auth<T>(
-    _entry: &T,
-    _action: impl Into<EntryCreationAction>
-) -> Result<(), String>
-where
-    T: TryFrom<Entry, Error = WasmError> + Clone,
-{
-    Ok(())
-}
+#[cfg(test)]
+mod tests {
+    use super::{ sha256, Serialize };
 
+    #[test]
+    fn test_sha256() {
+        #[derive(Debug, Serialize)]
+        pub struct Data( Option<u8> );
 
-
-//
-// Zome call helpers
-//
-/// Call a local zome function
-///
-/// ##### Example: Basic Usage
-/// ```ignore
-/// # use merklicious_sdk::*;
-/// # use merklicious_sdk::hdk::prelude::*;
-/// fn example() -> ExternResult<()> {
-///     let group_id = "uhCkkrVjqWkvcFoq2Aw4LOSe6Yx9OgQLMNG-DiXqtT0nLx8uIM2j7";
-///     let content_addr = "uhCkknDrZjzEgzf8iIQ6aEzbqEYrYBBg1pv_iTNUGAFJovhxOJqu0";
-///
-///     call_local_zome!(
-///         "merklicious_csr",
-///         "create_content_link",
-///         merklicious_sdk::CreateContributionLinkInput {
-///             group_id: ActionHash::try_from(group_id).unwrap(),
-///             content_target: ActionHash::try_from(content_addr).unwrap().into(),
-///         }
-///     )?;
-///
-///     Ok(())
-/// }
-/// ```
-#[macro_export]
-macro_rules! call_local_zome {
-    ( $zome:literal, $fn:literal, $($input:tt)+ ) => {
-        {
-            use merklicious_sdk::hdk;
-            use merklicious_sdk::hdi_extensions::guest_error;
-
-            match hdk::prelude::call(
-                hdk::prelude::CallTargetCell::Local,
-                $zome,
-                $fn.into(),
-                None,
-                $($input)+,
-            )? {
-                ZomeCallResponse::Ok(extern_io) => Ok(extern_io),
-                ZomeCallResponse::NetworkError(msg) => Err(guest_error!(format!("{}", msg))),
-                ZomeCallResponse::CountersigningSession(msg) => Err(guest_error!(format!("{}", msg))),
-                _ => Err(guest_error!(format!("Zome call response: Unauthorized"))),
-            }
-        }
-    };
+        assert_eq!( sha256( &Data(None) ).unwrap(), [
+            228, 255, 94, 125, 122, 127, 8, 233,
+            128, 10, 62, 37, 203, 119, 69, 51,
+            203, 32, 4, 13, 243, 11, 107, 161,
+            15, 149, 111, 154, 205, 14, 179, 247
+        ] );
+    }
 }

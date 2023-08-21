@@ -1,0 +1,15 @@
+manifest_version: "1"
+name: minimal_dna
+integrity:
+  origin_time: 2023-01-01T00:00:00.000000Z
+  network-seed: ~
+  properties: ~
+  zomes:
+    - name: merklicious
+      bundled: ../../zomes/merklicious.wasm
+coordinator:
+  zomes:
+    - name: merklicious_csr
+      bundled: ../../zomes/merklicious_csr.wasm
+      dependencies:
+        - name: merklicious
