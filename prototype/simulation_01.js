@@ -5,6 +5,8 @@ import crypto				from 'crypto';
 import { expect }			from 'chai';
 import { MerkleTree }			from 'merkletreejs'
 import { faker }			from '@faker-js/faker';
+import hashjs				from 'hash.js';
+import DRBG				from 'hmac-drbg';
 import msgpack				from '@msgpack/msgpack';
 import json				from '@whi/json';
 import {
@@ -16,10 +18,18 @@ import {
     Cell,
 }					from '@whi/holochain-prototyping';
 
+import common				from './coordinators/common.js';
 import coordinator			from './coordinators/csr_01.js';
 import { dna }				from './dna.js';
 
 
+function sha256 ( input ) {
+    const hash			= crypto.createHash("sha256");
+    if ( !(input instanceof Uint8Array) )
+	input			= msgpack.encode( input, { "sortKeys": true });
+    hash.update( input );
+    return new Uint8Array( hash.digest() );
+}
 
 // Setup for tests
 const agent_1 			= new AgentPubKey( crypto.randomBytes(32) ).addTag("A1");
@@ -119,33 +129,42 @@ const drivers_license			= {
     "organ_donor": true,
     "photo": crypto.randomBytes( 500 ),
 };
+const entropy			= crypto.randomBytes( 32 );
+const hmac_input		= {
+    "hash": hashjs.sha256,
+    "entropy": entropy,
+    "nonce": entropy,
+    "pers": null,
+};
+const hmac			= new DRBG( hmac_input );
+const blocks			= common.flatten_data( drivers_license );
+blocks.forEach( block => {
+    block.salt			= hmac.generate( 32 );
+});
+const leaves			= blocks.map( block => sha256(block) );
 
-const tree_1_id			= cell_1.callZomeFunction("main", "create_tree", drivers_license )
+const tree_1_id			= cell_1.callZomeFunction("main", "create_tree", leaves )
       .addTag("T1");
 console.log("Created tree: %s", tree_1_id.toString(true) );
 
 const tree			= cell_1.callZomeFunction("main", "get_tree", tree_1_id );
 console.log("Merkle Tree:", json.debug(tree) );
 
+const label			= "date_of_birth";
+const block_index		= blocks.findIndex( block => block.label === label );
 const proof_pack		= cell_1.callZomeFunction("main", "get_leaf_proof", {
     "tree_id": tree_1_id,
-    "label": "date_of_birth",
-    // "label": "id",
+    "index": block_index,
 });
 console.log("Proof:", json.debug(proof_pack) );
 
-function sha256 ( input ) {
-    const hash			= crypto.createHash("sha256");
-    hash.update( json.toBytes( input ) );
-    return new Uint8Array( hash.digest() );
-}
 const mt			= new MerkleTree([]);
 
 {
     const verified			= mt.verify(
 	proof_pack.proof,
-	sha256(msgpack.encode(proof_pack.target, { "sortKeys": true })),
-	Buffer.from(tree.hash),
+	sha256( blocks[ block_index ] ),
+	Buffer.from(tree.root),
     );
     console.log( verified );
 }

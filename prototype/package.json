@@ -13,7 +13,7 @@
     "@faker-js/faker": "^8.0.1",
     "@msgpack/msgpack": "^3.0.0-beta2",
     "@spartan-hc/holo-hash": "^0.5.4",
-    "@whi/holochain-prototyping": "file:../../node-holochain-prototyping",
+    "@whi/holochain-prototyping": "file:../../../projects-holo/node-holochain-prototyping",
     "@whi/json": "^0.1.7",
     "@whi/object-walk": "^0.3.0",
     "chai": "^4.3.7",

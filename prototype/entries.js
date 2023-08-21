@@ -15,14 +15,17 @@ import {
 
 export class TreeEntry extends AppEntryType {
     static struct			= {
-	"input":			Object,
-	"leaves":			VecType( Object ),
-	"entropy":			Uint8Array,
-	"hash":				Uint8Array,
+	"data_blocks":			OptionType( ActionHash ),
+	"leaves":			VecType( Uint8Array ),
+	"root":				Uint8Array,
 
-	"published_at":			Date,
-	"last_updated":			Date,
+	"metadata":			Object,
+    };
+}
 
+export class DataBlocksEntry extends AppEntryType {
+    static struct			= {
+	"blocks":			VecType( Object ),
 	"metadata":			Object,
     };
 }
@@ -32,6 +35,7 @@ export { PathEntry }			from '@whi/holochain-prototyping';
 
 
 export default {
+    DataBlocksEntry,
     TreeEntry,
     PathEntry,
 };

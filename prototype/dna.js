@@ -4,6 +4,7 @@ import {
 }					from '@whi/holochain-prototyping';
 
 import { PathEntry,
+	 DataBlocksEntry,
 	 TreeEntry }			from './entries.js';
 import coordinator			from './coordinators/csr_01.js';
 
@@ -12,6 +13,7 @@ export const dna = new DNA([
     {
 	"EntryTypes": [
 	    PathEntry,
+	    DataBlocksEntry,
 	    TreeEntry,
 	],
 	"LinkTypes": [
