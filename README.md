@@ -9,12 +9,7 @@ A set of Zomes (WASMs used in Holochain DNAs) for implementing Merkle Trees.
 [![](https://img.shields.io/github/issues-pr-raw/mjbrisebois/hc-merklicious?style=flat-square)](https://github.com/mjbrisebois/hc-merklicious/pulls)
 
 ## Overview
-Merklicious is about grouping a set of agents under a common goal and enabling others to follow the
-progress of that group.  This project provides a set of rules (integriy zome) for organizing
-contributions in an efficient way and a model for updating the list of authorized contributors.  It
-also provides a default way of viewing content; however, grouping content in a Holochain app is
-essentially just a suggestion because the end-user can ultimately choose how they want to read the
-DHT.
+This project provides the tools for implementing the Merkle tree proof/verify cycle.
 
 
 ### Usage
