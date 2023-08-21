@@ -3,6 +3,10 @@ name = "hc_merklicious_sdk"
 version = "0.1.0"
 authors = ["Matthew Brisebois <matthew.brisebois@holo.host>"]
 edition = "2018"
+license = "CAL-1.0"
+repository = "https://github.com/mjbrisebois/hc-merklicious"
+description = "Standard development kit for the 'Merklicious' Holochain zomes"
+readme = "README.md"
 
 [lib]
 name = "merklicious_sdk"
